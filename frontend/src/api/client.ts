@@ -1,4 +1,6 @@
-class ApiError extends Error {
+import type { IApiResponse, IUser } from "../types"
+
+export class ApiError extends Error {
     status: number
 
     constructor(status: number, message: string) {
@@ -8,7 +10,7 @@ class ApiError extends Error {
     }
 }
 
-class ApiClient {
+ class ApiClient {
     private baseUrl: string
 
     constructor(
@@ -17,12 +19,13 @@ class ApiClient {
         this.baseUrl = baseUrl
     }
 
-    private async request(
+    private async request<T>(
         endpoint: string,
         options?: RequestInit
-    ) {
+    ): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`
-        const config: RequestInit = {...options,
+        const config: RequestInit = {
+            ...options,
             headers: {
                 "Content-type": "application/json",
                 ...options?.headers
@@ -32,7 +35,7 @@ class ApiClient {
             const response = await fetch(url, config)
 
             if (!response.ok) {
-                const errorData = 
+                const errorData =
                     await response.json().catch(() => ({}))
                 throw new ApiError(
                     response.status,
@@ -40,20 +43,39 @@ class ApiClient {
                     `HTTP ${response.status}: ${response.statusText}`
                 )
             }
+            return await response.json()
         } catch (error) {
             if (error instanceof ApiError) {
                 throw error
             }
             throw new ApiError(
-                0, 
+                0,
                 `Network error: ${error instanceof Error ? error.message :
                     'Unknown error'
                 }`)
         }
     }
 
-    async get(endpoint: string): {
-        
+    async get<T>(endpoint: string): Promise<T> {
+        return this.request<T>(endpoint, {
+            method: "GET"
+
+        })
+    }
+
+    async post<TRequest, TResponse>(
+        endpoint: string,
+        data: TRequest
+    ): Promise<TResponse> {
+        return this.request<TResponse>(endpoint, {
+            method: "POST",
+            body: JSON.stringify(data)
+
+        })
+    }
+
+    async getUsers(): Promise<IApiResponse<IUser[]>> {
+        return this.get<IApiResponse<IUser[]>>("/users")
     }
 }
 
